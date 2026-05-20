@@ -1,6 +1,12 @@
 """
 Generate Lean theorems over `Nat` by repeatedly rewriting a trivially true equality.
 
+Run:
+- `python3 scripts/generate_nat_equalities.py`
+
+To rerun a saved setup, point `CONFIG_PATH` at a JSON file in `configs/`.
+When `CONFIG_PATH` is set, values from that file override the settings below.
+
 Settings:
 - Caps and limits:
 - `COUNT`: number of theorems to generate
@@ -25,6 +31,7 @@ Settings:
 
 from __future__ import annotations
 
+import json
 import math
 import random
 import subprocess
@@ -57,7 +64,11 @@ class Mul:
 
 Expr = Var | Const | Add | Mul
 
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_VARIABLE_NAMES = ["x", "y", "z", "a", "b", "u", "v", "w"]
+
+# Optional saved setup. When set, this JSON file overrides the settings below.
+CONFIG_PATH = PROJECT_ROOT / "configs" / "P.json"
 
 # Caps and limits
 COUNT = 5000
@@ -96,7 +107,41 @@ WRAP_MUL_WEIGHT = 1.0
 CHECK_AFTER_WRITE = True
 SHOW_PROGRESS = True
 SEED = 42
-OUT_PATH = Path(__file__).resolve().parent.parent / "RingData" / "NatEqualities.lean"
+OUT_PATH = PROJECT_ROOT / "RingData" / "NatEqualities.lean"
+
+SETTING_NAMES = {
+    "COUNT",
+    "MAX_STEPS",
+    "MAX_SIZE",
+    "MAX_CONSTANT",
+    "NUM_VARIABLES",
+    "MAX_THEOREMS_PER_FILE",
+    "VARIABLE_PROB",
+    "WRAPPER_ATOM_PROB",
+    "WRAPPER_ADD_PROB",
+    "ADD_ZERO_WEIGHT",
+    "MUL_ONE_WEIGHT",
+    "COMMUTE_ADD_WEIGHT",
+    "COMMUTE_MUL_WEIGHT",
+    "ASSOC_ADD_LEFT_WEIGHT",
+    "ASSOC_ADD_RIGHT_WEIGHT",
+    "ASSOC_MUL_LEFT_WEIGHT",
+    "ASSOC_MUL_RIGHT_WEIGHT",
+    "DISTRIB_LEFT_WEIGHT",
+    "DISTRIB_RIGHT_WEIGHT",
+    "FACTOR_LEFT_WEIGHT",
+    "FACTOR_RIGHT_WEIGHT",
+    "CONST_SPLIT_ADD_WEIGHT",
+    "CONST_FOLD_ADD_WEIGHT",
+    "CONST_SPLIT_MUL_WEIGHT",
+    "CONST_FOLD_MUL_WEIGHT",
+    "WRAP_ADD_WEIGHT",
+    "WRAP_MUL_WEIGHT",
+    "CHECK_AFTER_WRITE",
+    "SHOW_PROGRESS",
+    "SEED",
+    "OUT_PATH",
+}
 
 
 def expr_to_lean(expr: Expr, parent_prec: int = 0) -> str:
@@ -651,6 +696,32 @@ def check_lean_file(path: Path) -> None:
     print("Lean check completed.", file=sys.stderr, flush=True)
 
 
+def apply_config_file() -> None:
+    if CONFIG_PATH is None:
+        return
+
+    config_path = CONFIG_PATH
+    if not config_path.is_absolute():
+        config_path = (PROJECT_ROOT / config_path).resolve()
+
+    config = json.loads(config_path.read_text())
+    if not isinstance(config, dict):
+        raise ValueError("Config file must contain a JSON object")
+
+    unknown_keys = sorted(set(config) - SETTING_NAMES)
+    if unknown_keys:
+        raise ValueError(f"Unknown config settings: {', '.join(unknown_keys)}")
+
+    for name, value in config.items():
+        if name == "OUT_PATH":
+            path = Path(value)
+            if not path.is_absolute():
+                path = (config_path.parent / path).resolve()
+            globals()[name] = path
+        else:
+            globals()[name] = value
+
+
 def validate_settings() -> None:
     if COUNT <= 0:
         raise ValueError("COUNT must be positive")
@@ -699,6 +770,7 @@ def validate_settings() -> None:
 
 
 def main() -> None:
+    apply_config_file()
     validate_settings()
     theorem_texts = generate_theorem_texts(
         count=COUNT,
