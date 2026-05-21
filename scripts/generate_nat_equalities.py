@@ -68,7 +68,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_VARIABLE_NAMES = ["x", "y", "z", "a", "b", "u", "v", "w"]
 
 # Optional saved setup. When set, this JSON file overrides the settings below.
-CONFIG_PATH = PROJECT_ROOT / "configs" / "P.json"
+CONFIG_PATH = PROJECT_ROOT / "configs" / "Q.json"
 
 # Caps and limits
 COUNT = 5000
